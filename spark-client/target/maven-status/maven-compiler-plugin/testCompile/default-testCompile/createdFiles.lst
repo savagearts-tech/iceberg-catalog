@@ -1,0 +1,3 @@
+com\lakehouse\spark\SparkCatalogSessionFactoryTest.class
+com\lakehouse\spark\SparkIcebergJDBCIntegrationTest.class
+com\lakehouse\spark\SparkIcebergRESTIntegrationTest.class

@@ -1,0 +1,8 @@
+D:\Workspace\catalog\catalog-client\src\test\java\com\lakehouse\catalog\client\IcebergCatalogClientIntegrationTest.java
+D:\Workspace\catalog\catalog-client\src\test\java\com\lakehouse\catalog\client\IcebergCatalogClientJdbcCatalogTest.java
+D:\Workspace\catalog\catalog-client\src\test\java\com\lakehouse\catalog\client\IcebergCatalogClientTest.java
+D:\Workspace\catalog\catalog-client\src\test\java\com\lakehouse\catalog\config\CatalogConfigTest.java
+D:\Workspace\catalog\catalog-client\src\test\java\com\lakehouse\catalog\factory\CatalogFactoryTest.java
+D:\Workspace\catalog\catalog-client\src\test\java\com\lakehouse\catalog\HadoopToJdbcMigrationExampleTest.java
+D:\Workspace\catalog\catalog-client\src\test\java\com\lakehouse\catalog\migration\CatalogMigrationServiceMinioIntegrationTest.java
+D:\Workspace\catalog\catalog-client\src\test\java\com\lakehouse\catalog\migration\CatalogMigrationServiceTest.java

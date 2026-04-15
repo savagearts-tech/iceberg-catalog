@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: com.lakehouse.catalog.client.IcebergCatalogClientIntegrationTest
+-------------------------------------------------------------------------------
+Tests run: 4, Failures: 0, Errors: 0, Skipped: 4, Time elapsed: 0.008 s -- in com.lakehouse.catalog.client.IcebergCatalogClientIntegrationTest

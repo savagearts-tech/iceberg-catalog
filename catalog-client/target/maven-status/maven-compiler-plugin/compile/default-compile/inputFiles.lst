@@ -1,0 +1,8 @@
+D:\Workspace\catalog\catalog-client\src\main\java\com\lakehouse\catalog\client\IcebergCatalogClient.java
+D:\Workspace\catalog\catalog-client\src\main\java\com\lakehouse\catalog\config\CatalogConfig.java
+D:\Workspace\catalog\catalog-client\src\main\java\com\lakehouse\catalog\factory\CatalogFactory.java
+D:\Workspace\catalog\catalog-client\src\main\java\com\lakehouse\catalog\HadoopToJdbcMigrationExample.java
+D:\Workspace\catalog\catalog-client\src\main\java\com\lakehouse\catalog\migration\CatalogMigrationService.java
+D:\Workspace\catalog\catalog-client\src\main\java\com\lakehouse\catalog\migration\MetadataLocationSupplier.java
+D:\Workspace\catalog\catalog-client\src\main\java\com\lakehouse\catalog\migration\MigrationResult.java
+D:\Workspace\catalog\catalog-client\src\main\java\com\lakehouse\catalog\WriteParquetExample.java

@@ -1,0 +1,3 @@
+com\lakehouse\spark\SparkCatalogSessionFactory$SparkCatalogSessionFactoryBuilder.class
+com\lakehouse\spark\SparkCatalogSessionFactory.class
+com\lakehouse\spark\SparkIcebergQueryExample.class

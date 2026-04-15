@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report.xsd" version="3.0.2" name="com.lakehouse.catalog.client.IcebergCatalogClientIntegrationTest" time="0.008" tests="4" errors="0" skipped="4" failures="0">
+  <properties/>
+  <testcase name="should_CreateTableViaREST_When_CatalogConnected" classname="com.lakehouse.catalog.client.IcebergCatalogClientIntegrationTest" time="0.0">
+    <skipped message="依赖环境 Docker/Podman，暂时跳过以免影响本地编译"/>
+  </testcase>
+  <testcase name="should_WriteAndReadParquetViaREST_When_RecordsProvided" classname="com.lakehouse.catalog.client.IcebergCatalogClientIntegrationTest" time="0.0">
+    <skipped message="依赖环境 Docker/Podman，暂时跳过以免影响本地编译"/>
+  </testcase>
+  <testcase name="should_SupportMultipleCommitsViaREST_When_AppendingData" classname="com.lakehouse.catalog.client.IcebergCatalogClientIntegrationTest" time="0.0">
+    <skipped message="依赖环境 Docker/Podman，暂时跳过以免影响本地编译"/>
+  </testcase>
+  <testcase name="should_TrackSnapshotsViaREST_When_MultipleCommits" classname="com.lakehouse.catalog.client.IcebergCatalogClientIntegrationTest" time="0.0">
+    <skipped message="依赖环境 Docker/Podman，暂时跳过以免影响本地编译"/>
+  </testcase>
+</testsuite>
