@@ -1,5 +1,6 @@
 package com.lakehouse.catalog.client;
 
+import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.catalog.Namespace;
@@ -9,10 +10,13 @@ import org.apache.iceberg.data.Record;
 import org.apache.iceberg.inmemory.InMemoryCatalog;
 import org.apache.iceberg.types.Types;
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.*;
 
@@ -27,6 +31,9 @@ import static org.assertj.core.api.Assertions.*;
  */
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class IcebergCatalogClientTest {
+
+    @TempDir
+    Path tempDir;
 
     private static final String NAMESPACE = "test_tenant";
 
@@ -68,6 +75,57 @@ class IcebergCatalogClientTest {
         assertThat(table.schema().findField("id").type()).isEqualTo(Types.LongType.get());
         assertThat(table.schema().findField("name").type()).isEqualTo(Types.StringType.get());
         assertThat(table.schema().findField("email").type()).isEqualTo(Types.StringType.get());
+        assertThat(table.spec().isPartitioned()).isFalse();
+    }
+
+    @Test
+    @DisplayName("should_CreatePartitionedTable_When_BucketSpecProvided")
+    void should_CreatePartitionedTable_When_BucketSpecProvided() {
+        PartitionSpec spec = PartitionSpec.builderFor(USER_SCHEMA).bucket("id", 4).build();
+
+        Table table = client.createTable("events_bucketed", USER_SCHEMA, spec);
+
+        assertThat(table.spec().isPartitioned()).isTrue();
+        assertThat(table.spec().fields()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("should_CreateTableWithProperties_When_PropertiesMapProvided")
+    void should_CreateTableWithProperties_When_PropertiesMapProvided() {
+        Map<String, String> props = Map.of("write.format.default", "parquet", "comment", "tenant users");
+
+        Table table = client.createTable(
+                "users_with_props",
+                USER_SCHEMA,
+                PartitionSpec.unpartitioned(),
+                props);
+
+        assertThat(table.properties()).containsEntry("write.format.default", "parquet");
+        assertThat(table.properties()).containsEntry("comment", "tenant users");
+    }
+
+    @Test
+    @DisplayName("should_CreateTableAtExplicitLocation_When_LocationProvided")
+    void should_CreateTableAtExplicitLocation_When_LocationProvided() {
+        String location = tempDir.resolve("explicit_table_loc").toUri().toString();
+        PartitionSpec spec = PartitionSpec.unpartitioned();
+        Map<String, String> props = Map.of();
+
+        Table table = client.createTable("explicit_loc_tbl", USER_SCHEMA, spec, location, props);
+
+        assertThat(table.location()).isEqualTo(location);
+    }
+
+    @Test
+    @DisplayName("should_CreateTable_When_BuildTableFluentApiUsed")
+    void should_CreateTable_When_BuildTableFluentApiUsed() {
+        Table table = client.buildTable("fluent_users", USER_SCHEMA)
+                .withProperty("write.format.default", "parquet")
+                .create();
+
+        assertThat(table).isNotNull();
+        assertThat(client.tableExists("fluent_users")).isTrue();
+        assertThat(table.properties()).containsEntry("write.format.default", "parquet");
     }
 
     @Test

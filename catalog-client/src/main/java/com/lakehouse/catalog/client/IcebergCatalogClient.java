@@ -2,7 +2,7 @@ package com.lakehouse.catalog.client;
 
 import com.lakehouse.catalog.config.CatalogConfig;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.iceberg.CatalogProperties;
+import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.catalog.Catalog;
@@ -18,10 +18,11 @@ import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.OutputFile;
 import org.apache.iceberg.parquet.Parquet;
 import com.lakehouse.catalog.factory.CatalogFactory;
+import org.apache.iceberg.jdbc.JdbcCatalog;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.HashMap;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -29,9 +30,14 @@ import java.util.UUID;
 /**
  * Iceberg Catalog client for writing and reading Parquet data.
  *
+ * <p>For batched metadata commits of externally produced {@link org.apache.iceberg.DataFile}s and
+ * crash recovery via a JSONL journal, see {@link com.lakehouse.catalog.client.writer.CoalescingAppendWriter#open(
+ * com.lakehouse.catalog.client.IcebergCatalogClient, String, java.nio.file.Path,
+ * com.lakehouse.catalog.client.writer.CoalescingAppendWriterConfig)}.</p>
+ *
  * <p>Supports two construction modes:</p>
  * <ul>
- *   <li>Production: {@link #IcebergCatalogClient(CatalogConfig)} — builds RESTCatalog from config</li>
+ *   <li>Production: {@link #IcebergCatalogClient(CatalogConfig)} — builds catalog from config (REST, JDBC, Hadoop)</li>
  *   <li>Testing: {@link #IcebergCatalogClient(Catalog, String)} — accepts injected Catalog (TDD-friendly)</li>
  * </ul>
  *
@@ -68,22 +74,114 @@ public class IcebergCatalogClient implements Closeable {
     }
 
     /**
-     * Create an Iceberg table in the default namespace.
+     * Create an Iceberg table in the default namespace (unpartitioned, no extra table properties).
+     *
+     * <p>If the table already exists, returns {@link Catalog#loadTable(TableIdentifier)} without
+     * comparing schema, partition spec, or properties to the existing table.</p>
      *
      * @param tableName table name
      * @param schema    Iceberg schema definition
      * @return the created Table
      */
     public Table createTable(String tableName, Schema schema) {
-        var tableId = tableIdentifier(tableName);
+        return createTableIfAbsent(
+                tableName,
+                schema,
+                PartitionSpec.unpartitioned(),
+                null,
+                null);
+    }
+
+    /**
+     * Create a table with an explicit partition spec and no extra table properties.
+     *
+     * <p>If the table already exists, loads and returns it without validating the requested spec.</p>
+     *
+     * @param tableName table name
+     * @param schema    table schema
+     * @param spec      partition specification (use {@link PartitionSpec#unpartitioned()} if none)
+     */
+    public Table createTable(String tableName, Schema schema, PartitionSpec spec) {
+        return createTableIfAbsent(tableName, schema, spec, null, null);
+    }
+
+    /**
+     * Create a table with partition spec and table properties.
+     *
+     * <p>If the table already exists, loads and returns it without validating the requested spec or properties.
+     * {@code properties} may be {@code null} (treated as empty).</p>
+     */
+    public Table createTable(
+            String tableName,
+            Schema schema,
+            PartitionSpec spec,
+            Map<String, String> properties) {
+        return createTableIfAbsent(tableName, schema, spec, null, properties);
+    }
+
+    /**
+     * Create a table with partition spec, explicit table location, and properties.
+     *
+     * <p>If {@code location} is null or blank, behaves like
+     * {@link #createTable(String, Schema, PartitionSpec, Map)} (catalog chooses the location).</p>
+     *
+     * <p>If the table already exists, loads and returns it without validating the requested arguments.</p>
+     */
+    public Table createTable(
+            String tableName,
+            Schema schema,
+            PartitionSpec spec,
+            String location,
+            Map<String, String> properties) {
+        String resolvedLocation = (location == null || location.isBlank()) ? null : location;
+        return createTableIfAbsent(tableName, schema, spec, resolvedLocation, properties);
+    }
+
+    /**
+     * Starts a native Iceberg {@link Catalog.TableBuilder} for advanced options (sort order,
+     * {@code createOrReplace}, multiple properties, etc.).
+     *
+     * <p>Unlike {@link #createTable(String, Schema)} overloads, this does <strong>not</strong> apply
+     * "if exists then load" semantics; the caller must invoke {@code create()}, {@code replace()},
+     * or {@code createOrReplace()} and handle conflicts.</p>
+     *
+     * @param tableName table name in the default namespace
+     * @param schema    initial schema for the builder
+     * @return Iceberg table builder bound to this client's catalog and namespace
+     */
+    public Catalog.TableBuilder buildTable(String tableName, Schema schema) {
+        return catalog.buildTable(tableIdentifier(tableName), schema);
+    }
+
+    private static Map<String, String> normalizeProperties(Map<String, String> properties) {
+        if (properties == null || properties.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        return Map.copyOf(properties);
+    }
+
+    private Table createTableIfAbsent(
+            String tableName,
+            Schema schema,
+            PartitionSpec spec,
+            String location,
+            Map<String, String> properties) {
+        TableIdentifier tableId = tableIdentifier(tableName);
+        Map<String, String> props = normalizeProperties(properties);
+        PartitionSpec effectiveSpec = spec == null ? PartitionSpec.unpartitioned() : spec;
 
         if (catalog.tableExists(tableId)) {
             log.info("Table already exists, loading: {}", tableId);
             return catalog.loadTable(tableId);
         }
 
-        log.info("Creating table: {}", tableId);
-        Table table = catalog.createTable(tableId, schema);
+        log.info("Creating table: {}, partitioned={}, explicitLocation={}",
+                tableId,
+                effectiveSpec.isPartitioned(),
+                location != null);
+        Table table = location == null
+                ? catalog.createTable(tableId, schema, effectiveSpec, props)
+                : catalog.createTable(tableId, schema, effectiveSpec, location, props);
         log.info("Table created: {}, location={}", tableId, table.location());
         return table;
     }
@@ -218,6 +316,11 @@ public class IcebergCatalogClient implements Closeable {
             } catch (IOException e) {
                 log.error("Failed to close catalog: {}", e.getMessage(), e);
             }
+            return;
+        }
+        if (catalog instanceof JdbcCatalog jdbcCatalog) {
+            jdbcCatalog.close();
+            log.info("IcebergCatalogClient closed (JdbcCatalog)");
         }
     }
 

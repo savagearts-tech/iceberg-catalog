@@ -2,8 +2,11 @@ package com.lakehouse.catalog.factory;
 
 import com.lakehouse.catalog.config.CatalogConfig;
 import com.lakehouse.catalog.config.CatalogConfig.CatalogType;
+import com.lakehouse.catalog.jdbc.pool.PooledJdbcCatalog;
 import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.exceptions.RESTException;
+
+import java.io.Closeable;
 import org.apache.iceberg.hadoop.HadoopCatalog;
 import org.apache.iceberg.jdbc.JdbcCatalog;
 import org.junit.jupiter.api.Test;
@@ -35,6 +38,22 @@ class CatalogFactoryTest {
         Catalog catalog = CatalogFactory.build(config);
         assertThat(catalog).isInstanceOf(JdbcCatalog.class);
         assertThat(catalog.name()).isEqualTo("lakehouse");
+    }
+
+    @Test
+    void testBuildJdbcCatalogUsesPooledCatalog() {
+        CatalogConfig config = CatalogConfig.builder()
+                .catalogType(CatalogType.JDBC)
+                .jdbcUrl("jdbc:h2:mem:pooled_test_db;DB_CLOSE_DELAY=-1")
+                .jdbcPoolProvider("hikari")
+                .jdbcPoolMaxSize(4)
+                .build();
+
+        Catalog catalog = CatalogFactory.build(config);
+
+        assertThat(catalog).isInstanceOf(PooledJdbcCatalog.class);
+        assertThat(catalog).isInstanceOf(JdbcCatalog.class);
+        assertThat(catalog).isInstanceOf(Closeable.class);
     }
 
     @Test

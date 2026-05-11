@@ -1,6 +1,8 @@
 package com.lakehouse.catalog.migration;
 
 import com.lakehouse.catalog.client.IcebergCatalogClient;
+import com.lakehouse.catalog.config.CatalogConfig;
+import com.lakehouse.catalog.factory.CatalogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.CatalogProperties;
@@ -172,23 +174,23 @@ class CatalogMigrationServiceMinioIntegrationTest {
     }
 
     private JdbcCatalog buildTargetCatalog() {
-        Map<String, String> properties = new HashMap<>();
-        properties.put(CatalogProperties.WAREHOUSE_LOCATION, "s3a://" + BUCKET + "/");
-        properties.put(CatalogProperties.URI, "jdbc:h2:file:" + normalizePath(tempDir.resolve("migration-catalog-db")));
-        properties.put("jdbc.user", "sa");
-        properties.put("jdbc.password", "");
-        properties.put(CatalogProperties.FILE_IO_IMPL, "org.apache.iceberg.aws.s3.S3FileIO");
-        properties.put("s3.endpoint", MINIO_ENDPOINT);
-        properties.put("s3.access-key-id", ACCESS_KEY);
-        properties.put("s3.secret-access-key", SECRET_KEY);
-        properties.put("s3.region", REGION);
-        properties.put("s3.path-style-access", "true");
-        properties.put("client.region", REGION);
+        CatalogConfig config = CatalogConfig.builder()
+                .catalogType(CatalogConfig.CatalogType.JDBC)
+                .catalogName(TARGET_CATALOG_NAME)
+                .warehousePath("s3a://" + BUCKET + "/")
+                .jdbcUrl("jdbc:h2:file:" + normalizePath(tempDir.resolve("migration-catalog-db")))
+                .jdbcUsername("sa")
+                .jdbcPassword("")
+                .jdbcPoolProvider("hikari")
+                .jdbcPoolMaxSize(4)
+                .jdbcPoolMinIdle(1)
+                .minioEndpoint(MINIO_ENDPOINT)
+                .minioAccessKey(ACCESS_KEY)
+                .minioSecretKey(SECRET_KEY)
+                .minioRegion(REGION)
+                .build();
 
-        JdbcCatalog catalog = new JdbcCatalog();
-        catalog.setConf(buildHadoopConf());
-        catalog.initialize(TARGET_CATALOG_NAME, properties);
-        return catalog;
+        return (JdbcCatalog) CatalogFactory.build(config);
     }
 
     private Configuration buildHadoopConf() {

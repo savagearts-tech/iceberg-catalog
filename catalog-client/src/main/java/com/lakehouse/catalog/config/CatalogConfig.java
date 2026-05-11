@@ -4,6 +4,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.ToString;
 
+import java.util.Map;
+
 /**
  * Configuration for connecting to the Gravitino Iceberg REST Catalog and MinIO.
  *
@@ -15,7 +17,7 @@ import lombok.ToString;
  */
 @Getter
 @Builder
-@ToString(exclude = {"minioSecretKey"})
+@ToString(exclude = {"jdbcPassword", "minioSecretKey"})
 public class CatalogConfig {
 
 public enum CatalogType {
@@ -45,6 +47,66 @@ public enum CatalogType {
      */
     @Builder.Default
     private final String jdbcPassword = "";
+
+    /**
+     * Connection pool provider for JDBC Catalog.
+     */
+    @Builder.Default
+    private final String jdbcPoolProvider = "hikari";
+
+    /**
+     * Maximum number of pooled JDBC connections.
+     */
+    @Builder.Default
+    private final int jdbcPoolMaxSize = 10;
+
+    /**
+     * Minimum number of idle pooled JDBC connections.
+     */
+    @Builder.Default
+    private final int jdbcPoolMinIdle = 1;
+
+    /**
+     * How long to wait for a pooled connection before timing out.
+     */
+    @Builder.Default
+    private final long jdbcPoolConnectionTimeoutMs = 30_000L;
+
+    /**
+     * Maximum idle time before a pooled connection can be retired.
+     */
+    @Builder.Default
+    private final long jdbcPoolIdleTimeoutMs = 600_000L;
+
+    /**
+     * Maximum lifetime of a pooled connection.
+     */
+    @Builder.Default
+    private final long jdbcPoolMaxLifetimeMs = 1_800_000L;
+
+    /**
+     * Validation timeout used by the underlying connection pool.
+     */
+    @Builder.Default
+    private final long jdbcPoolValidationTimeoutMs = 5_000L;
+
+    /**
+     * Leak detection threshold for the underlying connection pool. 0 disables it.
+     */
+    @Builder.Default
+    private final long jdbcPoolLeakDetectionThresholdMs = 0L;
+
+    /**
+     * JDBC driver-specific properties, stored without the {@code jdbc.} prefix.
+     */
+    @Builder.Default
+    private final Map<String, String> jdbcProperties = Map.of();
+
+    /**
+     * Extra Iceberg catalog properties passed through during initialization.
+     */
+    @Builder.Default
+    private final Map<String, String> catalogProperties = Map.of();
 
     /**
      * Gravitino Iceberg REST Catalog URI.

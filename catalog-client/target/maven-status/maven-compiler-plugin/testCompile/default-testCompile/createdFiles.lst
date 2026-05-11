@@ -1,0 +1,11 @@
+com\lakehouse\catalog\HadoopToJdbcMigrationExampleTest.class
+com\lakehouse\catalog\migration\CatalogMigrationServiceTest$TableMetadataStub.class
+com\lakehouse\catalog\migration\CatalogMigrationServiceTest.class
+com\lakehouse\catalog\migration\CatalogMigrationServiceTest$RecordingJdbcCatalog.class
+com\lakehouse\catalog\client\IcebergCatalogClientIntegrationTest.class
+com\lakehouse\catalog\factory\CatalogFactoryTest.class
+com\lakehouse\catalog\client\IcebergCatalogClientJdbcCatalogTest.class
+com\lakehouse\catalog\migration\CatalogMigrationServiceTest$StubHadoopCatalog.class
+com\lakehouse\catalog\client\IcebergCatalogClientTest.class
+com\lakehouse\catalog\config\CatalogConfigTest.class
+com\lakehouse\catalog\migration\CatalogMigrationServiceMinioIntegrationTest.class

@@ -63,4 +63,17 @@ class CatalogConfigTest {
         assertThat(str).doesNotContain("super-secret-value");
         assertThat(str).contains("catalogUri");
     }
+
+    @Test
+    @DisplayName("should_MaskJdbcPassword_When_ToStringCalled")
+    void should_MaskJdbcPassword_When_ToStringCalled() {
+        CatalogConfig config = CatalogConfig.builder()
+                .jdbcPassword("do-not-leak")
+                .minioSecretKey("do-not-leak-minio")
+                .build();
+
+        assertThat(config.toString())
+                .doesNotContain("do-not-leak")
+                .doesNotContain("do-not-leak-minio");
+    }
 }

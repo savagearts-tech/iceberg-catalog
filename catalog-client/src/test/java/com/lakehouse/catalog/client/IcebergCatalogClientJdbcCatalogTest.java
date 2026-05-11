@@ -1,19 +1,29 @@
 package com.lakehouse.catalog.client;
 
 import com.lakehouse.catalog.config.CatalogConfig;
+import com.lakehouse.catalog.jdbc.pool.JdbcConnectionPoolHandle;
+import com.lakehouse.catalog.jdbc.pool.PooledJdbcClientPool;
+import com.zaxxer.hikari.HikariDataSource;
+import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.data.GenericRecord;
+import org.apache.iceberg.jdbc.JdbcCatalog;
 import org.apache.iceberg.types.Types;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.Closeable;
 import java.io.IOException;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -51,6 +61,9 @@ class IcebergCatalogClientJdbcCatalogTest {
                 .jdbcUrl("jdbc:h2:file:" + normalizePath(tempDir.resolve("iceberg-catalog-db")))
                 .jdbcUsername("sa")
                 .jdbcPassword("")
+                .jdbcPoolProvider("hikari")
+                .jdbcPoolMaxSize(4)
+                .jdbcPoolMinIdle(1)
                 .build();
 
         client = new IcebergCatalogClient(config);
@@ -72,6 +85,84 @@ class IcebergCatalogClientJdbcCatalogTest {
 
             assertThat(parquetFiles).isNotEmpty();
         }
+    }
+
+    @Test
+    @DisplayName("should_CloseHikariPool_When_ClientClosed")
+    void should_CloseHikariPool_When_ClientClosed() throws Exception {
+        Path warehouseDir = tempDir.resolve("warehouse-close-test");
+        CatalogConfig config = CatalogConfig.builder()
+                .catalogType(CatalogConfig.CatalogType.JDBC)
+                .catalogName("jdbc-close-test-catalog")
+                .defaultNamespace(NAMESPACE)
+                .warehousePath(warehouseDir.toUri().toString())
+                .jdbcUrl("jdbc:h2:file:" + normalizePath(tempDir.resolve("iceberg-catalog-db-close")))
+                .jdbcUsername("sa")
+                .jdbcPassword("")
+                .jdbcPoolProvider("hikari")
+                .jdbcPoolMaxSize(2)
+                .jdbcPoolMinIdle(1)
+                .build();
+
+        client = new IcebergCatalogClient(config);
+        Catalog catalog = readCatalogField(client);
+        assertThat(catalog).isInstanceOf(Closeable.class);
+        client.ensureNamespace();
+
+        HikariDataSource dataSource = hikariDataSourceFromJdbcCatalog((JdbcCatalog) catalog);
+        client.close();
+        client = null;
+
+        assertThat(dataSource.isClosed()).isTrue();
+    }
+
+    @Test
+    @DisplayName("should_CreatePartitionedTable_When_UsingJdbcCatalogWithBucketSpec")
+    void should_CreatePartitionedTable_When_UsingJdbcCatalogWithBucketSpec() {
+        Path warehouseDir = tempDir.resolve("warehouse-partitioned");
+        CatalogConfig config = CatalogConfig.builder()
+                .catalogType(CatalogConfig.CatalogType.JDBC)
+                .catalogName("jdbc-partitioned-catalog")
+                .defaultNamespace(NAMESPACE)
+                .warehousePath(warehouseDir.toUri().toString())
+                .jdbcUrl("jdbc:h2:file:" + normalizePath(tempDir.resolve("iceberg-catalog-db-part")))
+                .jdbcUsername("sa")
+                .jdbcPassword("")
+                .jdbcPoolProvider("hikari")
+                .jdbcPoolMaxSize(2)
+                .jdbcPoolMinIdle(1)
+                .build();
+
+        client = new IcebergCatalogClient(config);
+        client.ensureNamespace();
+
+        PartitionSpec spec = PartitionSpec.builderFor(USER_SCHEMA).bucket("id", 4).build();
+        Table table = client.createTable(
+                "partitioned_users",
+                USER_SCHEMA,
+                spec,
+                Map.of("comment", "partitioned jdbc test"));
+
+        assertThat(table.spec().isPartitioned()).isTrue();
+        assertThat(table.properties()).containsEntry("comment", "partitioned jdbc test");
+    }
+
+    private static Catalog readCatalogField(IcebergCatalogClient icebergClient) throws Exception {
+        Field field = IcebergCatalogClient.class.getDeclaredField("catalog");
+        field.setAccessible(true);
+        return (Catalog) field.get(icebergClient);
+    }
+
+    private static HikariDataSource hikariDataSourceFromJdbcCatalog(JdbcCatalog jdbcCatalog) throws Exception {
+        Method connectionPool = JdbcCatalog.class.getDeclaredMethod("connectionPool");
+        connectionPool.setAccessible(true);
+        Object pool = connectionPool.invoke(jdbcCatalog);
+        assertThat(pool).isInstanceOf(PooledJdbcClientPool.class);
+
+        Field poolHandleField = PooledJdbcClientPool.class.getDeclaredField("poolHandle");
+        poolHandleField.setAccessible(true);
+        JdbcConnectionPoolHandle handle = (JdbcConnectionPoolHandle) poolHandleField.get(pool);
+        return (HikariDataSource) handle.dataSource();
     }
 
     private List<GenericRecord> createSampleRecords() {

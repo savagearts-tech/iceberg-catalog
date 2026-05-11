@@ -1,6 +1,8 @@
 package com.lakehouse.catalog.factory;
 
 import com.lakehouse.catalog.config.CatalogConfig;
+import com.lakehouse.catalog.jdbc.pool.JdbcPoolProperties;
+import com.lakehouse.catalog.jdbc.pool.PooledJdbcCatalog;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.CatalogProperties;
@@ -49,13 +51,16 @@ public class CatalogFactory {
 
     private static JdbcCatalog buildJdbcCatalog(CatalogConfig config, Configuration hadoopConf) {
         Map<String, String> properties = new HashMap<>();
+        properties.putAll(config.getCatalogProperties());
         properties.put(CatalogProperties.WAREHOUSE_LOCATION, config.getWarehousePath());
         properties.put(CatalogProperties.URI, config.getJdbcUrl());
         properties.put("jdbc.user", config.getJdbcUsername());
         properties.put("jdbc.password", config.getJdbcPassword());
+        applyJdbcDriverProperties(properties, config);
+        applyJdbcPoolProperties(properties, config);
         applyWarehouseFileIo(properties, config);
 
-        JdbcCatalog jdbcCatalog = new JdbcCatalog();
+        JdbcCatalog jdbcCatalog = new PooledJdbcCatalog();
         jdbcCatalog.setConf(hadoopConf);
         jdbcCatalog.initialize(config.getCatalogName(), properties);
         return jdbcCatalog;
@@ -98,6 +103,31 @@ public class CatalogFactory {
         }
 
         properties.put(CatalogProperties.FILE_IO_IMPL, "org.apache.iceberg.hadoop.HadoopFileIO");
+    }
+
+    private static void applyJdbcDriverProperties(Map<String, String> properties, CatalogConfig config) {
+        for (Map.Entry<String, String> entry : config.getJdbcProperties().entrySet()) {
+            String key = entry.getKey();
+            if (key.startsWith(JdbcCatalog.PROPERTY_PREFIX)) {
+                properties.put(key, entry.getValue());
+            } else {
+                properties.put(JdbcCatalog.PROPERTY_PREFIX + key, entry.getValue());
+            }
+        }
+    }
+
+    private static void applyJdbcPoolProperties(Map<String, String> properties, CatalogConfig config) {
+        JdbcPoolProperties.putPoolProperties(
+                properties,
+                config.getJdbcPoolProvider(),
+                config.getJdbcPoolMaxSize(),
+                config.getJdbcPoolMinIdle(),
+                config.getJdbcPoolConnectionTimeoutMs(),
+                config.getJdbcPoolIdleTimeoutMs(),
+                config.getJdbcPoolMaxLifetimeMs(),
+                config.getJdbcPoolValidationTimeoutMs(),
+                config.getJdbcPoolLeakDetectionThresholdMs()
+        );
     }
 
     private static boolean isS3Warehouse(String warehousePath) {
